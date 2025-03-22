@@ -25,10 +25,12 @@ class Player:
         # Create a new turtle for new players
         if not self.turtle:
             self.turtle = Turtle()
-        self.turtle.shape(self.shape)
-        self.turtle.color(self.color)
-        if self.penup:
+        if self.penup == "True":
             self.turtle.penup()
         else:
             self.turtle.pendown()
-        self.turtle.goto(self.x, self.y)
+        self.turtle.shape(self.shape)
+        self.turtle.color(self.color)
+        self.turtle.setx(self.x)
+        self.turtle.sety(self.y)
+        

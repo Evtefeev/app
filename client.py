@@ -5,6 +5,8 @@ import threading
 import json
 
 from player import Player
+from threaded_turtle.thread_serializer import ThreadSerializer
+from threaded_turtle.turtle_thread import TurtleThread
 
 # Setup screen
 screen = turtle.Screen()
@@ -15,6 +17,7 @@ screen.tracer(0)
 player = turtle.Turtle()
 player.shape("turtle")
 player.penup()
+mutex = threading.Lock()
 
 
 # Opponent turtles
@@ -73,54 +76,59 @@ screen.onkeypress(move_left, "a")
 screen.onkeypress(move_right, "d")
 
 # Function to receive updates from the server
+# Initialize one TurtleThreadSerializer
+ctrl = ThreadSerializer()
 
 
-def receive_updates():
-    global opponents
+def receive_updates(turtle):
+        global opponents
 
-    try:
-        while True:
-            data = client.recv(1024).decode()
-            if not data:
-                break
+        try:
+            while True:
+                data = client.recv(1024).decode()
+                if not data:
+                    break
 
-            positions = json.loads(data)
+                json_data = json.loads(data)
 
-            for key, pos in positions.items():
-                if key not in opponents:
-                    # Create a new turtle for new players
+                for key, el in json_data.items():
+                    if key not in opponents:
+                        # Create a new turtle for new players
 
-                    # new_turtle = turtle.Turtle()
-                    # new_turtle.shape("turtle")
-                    # new_turtle.color("gray")
-                    # new_turtle.penup()
+                        # new_turtle = turtle.Turtle()
+                        # new_turtle.shape("turtle")
+                        # new_turtle.color("gray")
+                        # new_turtle.penup()
 
-                    new_player = Player(
-                        pos['x'],
-                        pos['y'],
-                        pos['shape'],
-                        pos['color'],
-                        True,
-                        pos['penup']
-                    )
-                    opponents[key] = new_player
+                        new_player = Player(
+                            el['x'],
+                            el['y'],
+                            el['shape'],
+                            el['color'],
+                            True,
+                            True if el['penup'] == "True" else False
+                        )
+                        with mutex:
+                            opponents[key] = new_player
 
-                # Update opponent positions
-                opponents[key].goto(pos["x"], pos["y"])
+                    # Update opponent positions
+                    opponents[key].goto(el["x"], el["y"])
 
-    except ConnectionResetError:
-        print("Disconnected from server.")
-    finally:
-        client.close()
+        except ConnectionResetError:
+            print("Disconnected from server.")
+        finally:
+            client.close()
 
 
 # Start receiving updates in a separate thread
-threading.Thread(target=receive_updates, daemon=True).start()
+# threading.Thread(target=receive_updates, daemon=True).start()
+TurtleThread(ctrl, target=receive_updates).start()
 screen.listen()
 
 # Game loop
 while True:
-    for opponent in opponents.values():
-        opponent.update()
+    with mutex:
+        for opponent in opponents.values():
+            opponent.update()
 
     screen.update()
